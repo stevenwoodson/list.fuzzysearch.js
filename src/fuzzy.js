@@ -119,5 +119,5 @@ module.exports = function(text, pattern, options) {
         last_rd = rd;
     }
 
-    return (best_loc < 0) ? false : true;
+    return (best_loc < 0) ? false : score_threshold;
 };

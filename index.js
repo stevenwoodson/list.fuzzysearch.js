@@ -12,7 +12,8 @@ module.exports = function(options) {
         distance: 100,
         threshold: 0.4,
         multiSearch: true,
-        searchClass: 'fuzzy-search'
+        searchClass: 'fuzzy-search',
+        relevanceSort: false
     }, options);
 
     var fuzzy = require('./src/fuzzy'),
@@ -26,28 +27,50 @@ module.exports = function(options) {
             for (var k = 0, kl = list.items.length; k < kl; k++) {
                 fuzzySearch.item(list.items[k], columns, searchArguments);
             }
+
+            // If the relevanceSort option is set to true, sort found items by relevance.
+            if ( options.relevanceSort === true ) {
+                sortOptions = {
+                    sortFunction : function(itemA, itemB, options) {
+                        return list.utils.naturalSort(itemA.foundScore, itemB.foundScore, options);
+                    }
+                };
+                list.sort('naturalSort', sortOptions);
+            }
         },
         item: function(item, columns, searchArguments) {
-            var found = true;
-            for(var i = 0; i < searchArguments.length; i++) {
-                var foundArgument = false;
+            var found = true,
+                foundScore = 1;
+            for (var i = 0; i < searchArguments.length; i++) {
+                var foundArgument = false,
+                    foundScoreArgument = 1;
                 for (var j = 0, jl = columns.length; j < jl; j++) {
-                    if (fuzzySearch.values(item.values(), columns[j], searchArguments[i])) {
+                    var match = fuzzySearch.values(item.values(), columns[j], searchArguments[i]);
+                    if (match !== false) {
                         foundArgument = true;
+
+                        if (match < foundScoreArgument) {
+                            foundScoreArgument = match;
+                        }
                     }
                 }
-                if(!foundArgument) {
+                if (!foundArgument) {
                     found = false;
+                }
+                if (foundScoreArgument < 1) {
+                    foundScore = foundScoreArgument;
                 }
             }
             item.found = found;
+            item.foundScore = foundScore;
         },
         values: function(values, value, searchArgument) {
             if (values.hasOwnProperty(value)) {
-                var text = toString(values[value]).toLowerCase();
+                var text = toString(values[value]).toLowerCase(),
+                    match = fuzzy(text, searchArgument, options);
 
-                if (fuzzy(text, searchArgument, options)) {
-                    return true;
+                if ( match !== false ) {
+                    return match;
                 }
             }
             return false;
